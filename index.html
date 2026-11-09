@@ -1,0 +1,153 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>FLAG 5V5</title>
+<style>
+:root{color-scheme:dark;--bg:#1f2933;--pn:#2b3a47;--bd:#3e4c59;--tx:#eceff1;--ac:#f4d35e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center;min-height:100vh}
+main{width:100%;max-width:400px;padding:10px}
+h1{font-size:20px;letter-spacing:.15em;text-align:center;margin:6px 0;color:var(--ac)}
+canvas{width:100%;display:block;border:2px solid var(--bd);border-radius:10px;touch-action:none}
+#h{min-height:36px;margin:6px 0;color:var(--ac);font-size:12px}
+#p{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#top{display:flex;align-items:center;gap:8px;position:relative}
+#top h1{flex:1;margin:6px 0}
+#mb{font-size:20px;line-height:1;padding:8px 12px}
+#md{font-size:12px;color:#b0bec5;min-width:64px;text-align:right}
+#menu{position:absolute;top:100%;left:0;z-index:5;display:none;flex-direction:column;gap:4px;padding:6px;background:var(--pn);border:1px solid var(--bd);border-radius:10px;min-width:170px}
+#menu.open{display:flex}
+#menu button{text-align:left}
+button,select,input{font:inherit;color:var(--tx);background:var(--pn);border:1px solid var(--bd);padding:9px 11px;border-radius:8px}
+button.on{background:var(--ac);color:#1b1b1b;border-color:var(--ac);font-weight:600}
+button:disabled{opacity:.4}
+.t{width:100%;color:#b0bec5;font-size:12px}
+select,input[type=text]{width:100%}
+</style></head><body><main>
+<div id="top"><button id="mb" aria-label="Menú">☰</button><h1>FLAG 5V5</h1><span id="md"></span><div id="menu"></div></div><div id="h"></div><canvas id="c"></canvas>
+<div id="p"></div></main>
+<script>
+const $=i=>document.getElementById(i),Y=25,VH=36,S=14,EL=25,C=$('c'),X=C.getContext('2d'),P=$('p'),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+C.width=Y*S;C.height=VH*S;
+const NAMES=['X','C','Z','Y'],F={Q:[12.5,-5],C:[12.5,0],X:[3,0],Z:[9,-1],Y:[22,0]},COL={C:'#f4d35e',X:'#5fa8d3',Z:'#e07a5f',Y:'#81b29a',Q:'#cfd8dc'};
+let plays,mode='edit',sel=0,pl='X',anim=null,G=null,Q=null,cam=EL-9,note='',drag=null,canImg=true;
+const OLD={Z:'C',A:'X',X:'Z',B:'Y'},mk=k=>k=='Q'||k=='C'?k:OLD[k];
+function mig(p){const o={n:p.n,r:{},f:{}};for(const s of['r','f'])for(const k in p[s]||{}){const m=mk(k);if(m)o[s][m]=p[s][k]}return o}
+try{plays=JSON.parse(localStorage.getItem('rf2'))}catch(e){}
+if(!Array.isArray(plays)||!plays.length){try{const o=JSON.parse(localStorage.getItem('rf'));if(Array.isArray(o)&&o.length)plays=o.map(mig)}catch(e){}}
+if(!Array.isArray(plays)||!plays.length)plays=[
+{n:'Verticales',r:{X:[[3,16]],Y:[[22,16]],Z:[[9,10]],C:[[12.5,4]]}},
+{n:'Cruce',r:{X:[[3,4],[22,6]],Y:[[22,4],[3,6]],Z:[[9,10],[12,16]],C:[[12.5,3]]}},
+{n:'Slant',r:{X:[[3,3],[9,8]],Y:[[22,3],[16,8]],Z:[[9,6]],C:[[12.5,-1],[20,5]]}}];
+const save=()=>{try{localStorage.setItem('rf2',JSON.stringify(plays))}catch(e){}};
+const fp=(p,n)=>(p.f&&p.f[n])||F[n];
+const sy=y=>(VH-(y-cam))*S;
+function btn(t,f,on,dis){const b=document.createElement('button');b.textContent=t;b.onclick=f;if(on)b.className='on';b.disabled=!!dis;P.append(b)}
+function txt(t){const d=document.createElement('div');d.textContent=t;d.className='t';P.append(d)}
+function sele(){const s=document.createElement('select');plays.forEach((p,i)=>s.add(new Option(p.n||'(sin nombre)',i)));s.value=sel;s.onchange=()=>{sel=+s.value;anim=null;render()};P.append(s)}
+function along(s,r,d){let p=s;for(const q of r){const l=Math.hypot(q[0]-p[0],q[1]-p[1]);if(d<=l)return[p[0]+(q[0]-p[0])*d/(l||1),p[1]+(q[1]-p[1])*d/(l||1)];d-=l;p=q}return p}
+function field(los,tgt){
+for(let y=Math.floor(cam);y<cam+VH+1;y++){X.fillStyle=y<10||y>=60?'#3d5a80':(Math.floor(y/5)%2?'#3f7d4a':'#387142');X.fillRect(0,sy(y+1),C.width,S+1);
+if(y%5==0&&y>=10&&y<=60){X.fillStyle='#ffffff55';X.fillRect(0,sy(y),C.width,1);X.fillStyle='#ffffffaa';X.font='9px system-ui,sans-serif';X.textAlign='left';if(y>10&&y<60)X.fillText(Math.min(y-10,60-y),4,sy(y)-3)}}
+const L=(y,c)=>{X.fillStyle=c;X.fillRect(0,sy(y)-1.5,C.width,3)};
+if(tgt)L(tgt,'#e0b030');L(los,'#2b6cb0')}
+function tok(x,y,t,col,sq,ring){const a=x*S,b=sy(y);X.fillStyle=col;X.strokeStyle=ring?'#fff':'#1f2933';X.lineWidth=ring?3:2;
+if(sq){X.fillRect(a-10,b-10,20,20);X.strokeRect(a-10,b-10,20,20)}else{X.beginPath();X.arc(a,b,11,0,7);X.fill();X.stroke()}
+X.fillStyle='#1b1b1b';X.font='bold 10px system-ui,sans-serif';X.textAlign='center';X.fillText(t,a,b+4)}
+function routes(p,los,hl){NAMES.forEach(n=>{const r=p.r[n];if(!r||!r.length)return;const s=fp(p,n);X.strokeStyle=COL[n];X.lineWidth=n==hl?4:3;X.lineJoin='round';X.beginPath();X.moveTo(s[0]*S,sy(los+s[1]));r.forEach(q=>X.lineTo(q[0]*S,sy(los+q[1])));X.stroke();const e=r[r.length-1];X.fillStyle=COL[n];X.beginPath();X.arc(e[0]*S,sy(los+e[1]),4,0,7);X.fill()})}
+function formation(los,p,pos){const q0=fp(p,'Q');tok(q0[0],los+q0[1],'Q',COL.Q,0);NAMES.forEach(n=>{const f=fp(p,n),q=pos?pos[n]:[f[0],los+f[1]];tok(q[0],q[1],n,COL[n],0,mode=='edit'&&n==pl)})}
+const clamp=v=>cl(v,0,70-VH),togo=()=>Math.max(0,Math.ceil(G.tgt-G.los));
+function draw(){
+if(mode=='game'&&G){const c=G.car&&G.o[G.car],p=plays[sel];cam=clamp(c?c.y-12:G.los-8);
+field(G.los,G.tgt);
+if(G.ph=='call'||G.ph=='patsel'||G.ph=='rival'){routes(p,G.los);formation(G.los,p)}
+else if(G.ph!='over'){tok(G.o.Q.x,G.o.Q.y,'Q',COL.Q,0);NAMES.forEach(n=>tok(G.o[n].x,G.o[n].y,n,COL[n],0,n==G.car));G.d.forEach(d=>tok(d.x,d.y,'D','#b23a48',1));
+if(G.ball){X.fillStyle='#8d5524';X.beginPath();X.ellipse(G.ball.x*S,sy(G.ball.y),6,4,0,0,7);X.fill()}}
+let h=G.ph=='over'?'Fin del juego':G.ph=='rival'?'Posesión del rival':(G.pat?'Punto extra de '+G.pat:G.down+'° y '+togo());
+if(G.ph=='call')h+=G.paused?' · Tiempo fuera':' · Elige jugada: '+Math.ceil(G.cd)+' s';
+if(G.ph=='play')h+=' · Lanza: '+Math.max(0,7-G.t).toFixed(1)+' s';
+if(G.ph=='dead')h+=' · '+G.msg;
+X.fillStyle='#1f2933ee';X.fillRect(0,0,C.width,32);X.font='bold 14px system-ui,sans-serif';X.textBaseline='middle';X.fillStyle='#eceff1';X.textAlign='left';X.fillText('TÚ '+G.score,10,17);X.textAlign='right';X.fillText(G.rv+' RIVAL',C.width-10,17);X.textAlign='center';X.fillStyle='#f4d35e';const tm=Math.ceil(G.time);X.fillText(Math.floor(tm/60)+':'+String(tm%60).padStart(2,'0'),C.width/2,17);X.textBaseline='alphabetic';
+$('h').textContent=h;return}
+cam=EL-9;const p=mode=='quiz'?plays[Q?Q.p:0]:plays[sel];field(EL,null);
+if(mode=='edit'){routes(p,EL,pl);formation(EL,p);$('h').textContent=`Jugada ${sel+1} · ${plays.length}/15 · Arrastra las fichas o toca el campo para trazar la ruta de ${pl}`}
+else if(mode=='study'){routes(p,EL);if(anim){const pos={};NAMES.forEach(n=>{const q=along(fp(p,n),p.r[n]||[],anim.t*6.5);pos[n]=[q[0],EL+q[1]]});formation(EL,p,pos)}else formation(EL,p);$('h').textContent='Estudia: '+(p.n||'')}
+else{routes(p,EL);formation(EL,p);$('h').textContent=Q?'¿Cómo se llama esta jugada? Aciertos '+Q.s+'/'+Q.n:''}}
+function toCall(){G.ph='call';G.cd=20;G.paused=0}
+function snap(){const L=G.los,p=plays[sel],q=fp(p,'Q');G.ph='play';G.t=0;G.ball=null;G.car=null;G.o={Q:{x:q[0],y:L+q[1]}};NAMES.forEach(n=>{const f=fp(p,n);G.o[n]={x:f[0],y:L+f[1]}});
+G.d=NAMES.map(n=>({x:fp(p,n)[0],y:L+(n=='C'?3:5),t:n}));G.d.push({x:12.5,y:L+13,t:null});render()}
+function step(d,tx,ty,m){const dx=tx-d.x,dy=ty-d.y,l=Math.hypot(dx,dy);if(l>m){d.x+=dx/l*m;d.y+=dy/l*m}else{d.x=tx;d.y=ty}}
+function pen(m){G.los=Math.max(11,G.los-5);G.ph='dead';G.msg=m+': castigo de 5 yd, se repite el down';render()}
+function fin(y,m,turn){const o=G.los;G.ph='dead';y=Math.max(11,y);G.msg=m;
+if(G.pat){G.msg+=' · Extra fallido';G.end=1}
+else if(turn)G.end=1;else{G.msg+=' '+(y>=o?'+':'')+Math.round(y-o)+' yd';G.los=y;if(y>=G.tgt&&G.tgt==35){G.tgt=60;G.down=1;G.msg+=' · ¡1° y gol!'}else if(++G.down>4){G.msg+=' · Sin downs';G.end=1}}render()}
+function update(dt){
+if(mode=='study'&&anim)anim.t=(anim.t+dt)%5;
+if(mode!='game'||!G)return;
+if(G.ph=='call'&&!G.paused){G.cd-=dt;if(!G.pat){G.time-=dt;if(G.time<=0){G.time=0;G.ph='over';return render()}}if(G.cd<=0)pen('20 s agotados');return}
+if(G.ph!='play')return;
+const L=G.los,p=plays[sel],r=p.r;G.t+=dt;if(!G.pat)G.time=Math.max(0,G.time-dt);
+NAMES.forEach(n=>{if(n!=G.car){const q=along(fp(p,n),r[n]||[],G.t*6.5);G.o[n].x=q[0];G.o[n].y=L+q[1]}});
+const c=G.car&&G.o[G.car];if(c)c.y+=6*dt;
+const deep=NAMES.map(n=>G.o[n]).reduce((a,b)=>b.y>a.y?b:a);
+G.d.forEach(d=>{const T=c||(d.t?G.o[d.t]:deep);step(d,T.x,d.t||c?T.y:T.y+3,(c?5.6:5.2)*dt)});
+if(G.ball){const b=G.ball,t=G.o[b.to],dx=t.x-b.x,dy=t.y-b.y,l=Math.hypot(dx,dy);
+if(l<.8){const dd=Math.min(...G.d.map(d=>Math.hypot(d.x-t.x,d.y-t.y))),R=Math.random();G.ball=null;
+if(dd<1&&R<.12)return fin(L,'¡Intercepción!',1);
+if(dd<1&&R<.55)return fin(L,'Pase incompleto');
+G.car=b.to}else{b.x+=dx/l*24*dt;b.y+=dy/l*24*dt}}
+if(c){if(c.y>=60){G.ph='dead';if(G.pat){G.score+=G.pat;G.msg='¡Extra bueno! +'+G.pat;G.end=1}else{G.score+=6;G.msg='¡Touchdown! +6';G.afterTD=1}return render()}
+if(G.d.some(d=>Math.hypot(d.x-c.x,d.y-c.y)<.9))fin(c.y,'¡Bandera!')}
+else if(!G.ball&&G.t>7)pen('7 s sin lanzar')}
+function nextPlay(){if(G.afterTD){G.afterTD=0;G.ph='patsel';return render()}
+if(G.end){G.end=0;G.pat=0;if(G.time<=0)G.ph='over';else rivalDrive()}else if(G.time<=0)G.ph='over';else toCall();render()}
+function rivalDrive(){const c=30+Math.floor(Math.random()*31);G.time=Math.max(0,G.time-c);let s=0;if(Math.random()<.35){s=6;s+=Math.random()<.6?(Math.random()<.85?1:0):(Math.random()<.4?2:0)}G.rv+=s;G.rmsg=s?'El rival anotó '+s+' pts':'El rival no logró anotar';G.ph='rival'}
+function nextDrive(){if(G.time<=0)G.ph='over';else{Object.assign(G,{los:25,tgt:35,down:1});toCall()}render()}
+function extra(n){G.pat=n;G.los=60-(n==1?5:10);G.tgt=60;G.down=1;toCall();render()}
+function newGame(){G={los:25,tgt:35,down:1,score:0,rv:0,time:360,rmsg:'',pat:0,to:2,ph:'call',cd:20,paused:0,msg:'',end:0,o:{},d:[]};render()}
+function nextQ(){const ix=plays.map((_,i)=>i).sort(()=>Math.random()-.5),p=ix[0];Q={p,o:ix.slice(0,Math.min(3,ix.length)).sort(()=>Math.random()-.5),s:Q?Q.s:0,n:Q?Q.n:0,res:''};render()}
+function clean(j){const ok=v=>Array.isArray(v)&&v.length==2&&v.every(Number.isFinite),o={n:String(j.n||'Importada').slice(0,16),r:{},f:{},L:[]};
+(Array.isArray(j.players)?j.players:[]).forEach(a=>{const n=String(a&&a.letter||'').trim().toUpperCase(),q=n=='Q';if(!['Q',...NAMES].includes(n)||o.L.includes(n)||!Number.isFinite(a.x)||!Number.isFinite(a.y))return;o.L.push(n);o.f[n]=[cl(a.x,0,Y),cl(a.y,q?-8:-4,q?-1:0)];if(!q&&Array.isArray(a.route))o.r[n]=a.route.filter(ok).slice(0,5).map(b=>[cl(b[0],0,Y),cl(b[1],-3,25)])});return o}
+async function imp(file){try{note='Leyendo la foto…';render();
+const im=await new Promise((ok,bad)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=bad;i.src=URL.createObjectURL(file)});
+const k=Math.min(1,1600/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
+const rs=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:cv.toDataURL('image/jpeg',.85).split(',')[1]})});
+if(!rs.ok)throw 0;const j=await rs.json();
+const a=(Array.isArray(j)?j:j.plays||[]).slice(0,15-plays.length).map(clean);
+if(!a.length){note=plays.length>=15?'Tu playbook ya tiene 15 jugadas.':'No encontré jugadas en la foto.';return render()}
+sel=plays.length;plays.push(...a);save();note='Importé '+a.length+' jugada(s). Letras detectadas: '+a.map(p=>p.n+' → '+p.L.join(' ')+(p.L.length<5?' (faltó '+['Q',...NAMES].filter(l=>!p.L.includes(l)).join(', ')+')':'')).join(' · ')+'. Revísalas en Editar.'}
+catch(e){note=e&&e.code=='not_granted'?'Permiso denegado para leer fotos.':'No pude leer la foto. Prueba con una más clara.'}
+render()}
+function render(){
+const MN=[['game','Jugar'],['study','Estudiar'],['quiz','Quiz'],['edit','Editar']],mu=$('menu');mu.textContent='';MN.forEach(([m,t])=>{const b=document.createElement('button');b.textContent=t;b.className=mode==m?'on':'';b.onclick=()=>{mode=m;anim=null;note='';mu.classList.remove('open');if(m=='game'&&!G)newGame();if(m=='quiz'&&!Q)nextQ();render()};mu.append(b)});$('md').textContent=MN.find(a=>a[0]==mode)[1];
+P.textContent='';const p=plays[sel];
+if(mode=='edit'){sele();const i=document.createElement('input');i.type='text';i.value=p.n;i.maxLength=16;i.oninput=()=>{p.n=i.value;save()};P.append(i);
+NAMES.forEach(n=>btn(n,()=>{pl=n;render()},n==pl));
+btn('Deshacer',()=>{(p.r[pl]||[]).pop();save()});btn('Limpiar '+pl,()=>{p.r[pl]=[];save()});btn('Reiniciar posiciones',()=>{delete p.f;save()});
+btn('Nueva',()=>{if(plays.length>=15){note='Máximo 15 jugadas.';return render()}plays.push({n:'Jugada '+(plays.length+1),r:{}});sel=plays.length-1;save();render()});
+btn('Borrar',()=>{if(plays.length>1){plays.splice(sel,1);sel=0;save();render()}});
+if(canImg){const fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.hidden=true;fi.onchange=()=>{if(fi.files[0])imp(fi.files[0])};P.append(fi);btn('📷 Importar playbook desde foto',()=>fi.click())}
+if(note)txt(note);
+txt('Q mariscal · X externo izquierdo · C centro · Z interno · Y externo derecho. Cada punto es un quiebre.')}
+else if(mode=='study'){sele();btn('▶ Ver',()=>{anim={t:0}});btn('■ Parar',()=>{anim=null});
+txt(NAMES.map(n=>{const r=p.r[n]||[];return n+': '+(r.length?r.length+' tramo(s), '+Math.round(Math.max(...r.map(q=>q[1])))+' yd':'sin ruta')}).join(' · '))}
+else if(mode=='quiz'){if(plays.length<2){txt('Necesitas al menos 2 jugadas en tu playbook.');return}
+if(Q.res){txt(Q.res);btn('Siguiente',nextQ)}else Q.o.forEach(i=>btn(plays[i].n||'(sin nombre)',()=>{Q.n++;const ok=i==Q.p;if(ok)Q.s++;Q.res=ok?'¡Correcto!':'Era: '+plays[Q.p].n;render()}))}
+else if(G){if(G.ph=='call'){sele();btn('¡HIKE!',snap,1);
+if(G.paused)btn('Continuar',()=>{G.paused=0;G.cd=20;render()});else btn('Tiempo fuera ('+G.to+')',()=>{G.to--;G.paused=1;render()},0,G.to<1);
+txt('Partido de 6 min contra un rival simulado. Empiezas en tu yarda 15: 1° y 10, la meta es la yarda 25. Luego 4 downs para anotar. 20 s para elegir y 7 s para lanzar; si te pasas, castigo de 5 yd. Toca un receptor para lanzarle.')}
+else if(G.ph=='play')txt('Toca un receptor para lanzar');
+else if(G.ph=='dead'){txt(G.msg);btn('Siguiente',nextPlay,1)}
+else if(G.ph=='patsel'){txt('¡Touchdown! Elige el punto extra');btn('1 punto (yarda 5)',()=>extra(1),1);btn('2 puntos (yarda 10)',()=>extra(2),1)}
+else if(G.ph=='rival'){txt(G.rmsg);btn('Continuar',nextDrive,1)}
+else{txt((G.score>G.rv?'¡Ganaste!':G.score<G.rv?'Perdiste':'Empate')+' · Final '+G.score+' a '+G.rv);btn('Jugar otra vez',newGame,1)}}}
+const pt=e=>{const r=C.getBoundingClientRect();return[(e.clientX-r.left)/r.width*Y,cam+VH-(e.clientY-r.top)/r.height*VH]};
+C.addEventListener('pointerdown',e=>{const[x,y]=pt(e);
+if(mode=='edit'){const p=plays[sel],h=['Q',...NAMES].find(n=>{const f=fp(p,n);return Math.hypot(f[0]-x,EL+f[1]-y)<2});
+if(h){drag=h;if(h!='Q')pl=h;C.setPointerCapture(e.pointerId);return render()}
+(p.r[pl]=p.r[pl]||[]);if(p.r[pl].length<5)p.r[pl].push([cl(Math.round(x*2)/2,0,Y),cl(Math.round(y-EL),-3,25)]);save()}
+else if(mode=='game'&&G&&G.ph=='play'&&!G.ball&&!G.car){let b=null,m=3.5;NAMES.forEach(n=>{const d=Math.hypot(G.o[n].x-x,G.o[n].y-y);if(d<m){m=d;b=n}});if(b)G.ball={x:G.o.Q.x,y:G.o.Q.y,to:b}}});
+C.addEventListener('pointermove',e=>{if(!drag)return;const[x,y]=pt(e),p=plays[sel],q=drag=='Q';(p.f=p.f||{})[drag]=[cl(Math.round(x*2)/2,0,Y),cl(Math.round(y-EL),q?-8:-4,q?-1:0)]});
+C.addEventListener('pointerup',()=>{if(drag){drag=null;save()}});
+$('mb').onclick=e=>{e.stopPropagation();$('menu').classList.toggle('open')};document.addEventListener('click',()=>$('menu').classList.remove('open'));
+let last=0;function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+render();requestAnimationFrame(loop);
+
+</script></body></html>
